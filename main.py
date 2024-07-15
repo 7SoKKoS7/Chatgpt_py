@@ -1,16 +1,55 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+import asyncio
+import logging
+import sys
 
 
-# Press the green button in the gutter to run the script.
+from aiogram import Bot, Dispatcher, html
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+from aiogram.filters import CommandStart, Command
+from aiogram.types import Message
+
+import base64
+import requests
+from openai import OpenAI
+
+from config import token
+from config import key
+
+TOKEN = token
+dp = Dispatcher()
+
+client = OpenAI(api_key=key)
+
+def ask_gpt4o(text):
+    response = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        n=1,
+        temperature=0.7,
+        messages=[
+            {"role": "system", "content": f"{text}"},
+        ]
+    )
+    answer = response.choices[0].message.content
+    print(answer)
+    return answer
+
+
+@dp.message()
+async def telegram(message: Message) -> None:
+    answer = ask_gpt4o(message.text)
+    try:
+        await message.answer(answer)
+    except TypeError:
+        await message.answer("Nice try!")
+
+
+async def main() -> None:
+    bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    await dp.start_polling(bot)
+
+
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    asyncio.run(main())
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
