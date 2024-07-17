@@ -27,6 +27,7 @@ openai.api_key = OPENAI_API_KEY
 conn = sqlite3.connect('chatbot.db')
 cursor = conn.cursor()
 
+
 # Функция для загрузки контекста из базы данных
 def load_context(user_id):
     cursor.execute('SELECT context FROM user_context WHERE user_id=?', (user_id,))
@@ -36,21 +37,26 @@ def load_context(user_id):
     else:
         return []
 
+
 # Функция для сохранения контекста в базу данных
 def save_context(user_id, context):
     cursor.execute('REPLACE INTO user_context (user_id, context) VALUES (?, ?)', (user_id, json.dumps(context)))
     conn.commit()
+
 
 # Функция для взаимодействия с моделью GPT-4
 def ask_gpt4(text, user_id, temperature=0.7, n=1):
     context = load_context(user_id)
     context.append({"role": "user", "content": text})
 
+    # Ограничение контекста до последних 10 сообщений
+    short_context = context[-10:]
+
     response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=context,
-        temperature=temperature,  # Добавлен параметр temperature
-        n=n  # Добавлен параметр количества ответов
+        model="gpt-4",
+        messages=short_context,
+        temperature=temperature,
+        n=n
     )
 
     bot_response = response.choices[0].message['content']
@@ -60,11 +66,13 @@ def ask_gpt4(text, user_id, temperature=0.7, n=1):
 
     return bot_response
 
+
 # Хэндлер для команды /start
 @dp.message(Command("start"))
 async def send_welcome(message: Message):
     user_context = load_context(message.from_user.id)
     await message.reply("Привет! Я бот, использующий модель GPT-4. Как я могу помочь?")
+
 
 # Хэндлер для обработки текстовых сообщений
 @dp.message()
@@ -80,9 +88,11 @@ async def handle_message(message: Message):
         print(error_message)  # Отладка в консоли
         await message.reply(f"Произошла ошибка при обработке вашего сообщения. Подробности: {error_message}")
 
+
 # Закрытие соединения с базой данных при завершении работы
 async def on_shutdown(dispatcher: Dispatcher):
     conn.close()
+
 
 # Запуск бота
 async def main() -> None:
@@ -90,6 +100,7 @@ async def main() -> None:
     dp.message.register(handle_message)
 
     await dp.start_polling(bot, skip_updates=True, on_shutdown=on_shutdown)
+
 
 if __name__ == '__main__':
     asyncio.run(main())
